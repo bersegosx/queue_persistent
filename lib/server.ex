@@ -1,40 +1,43 @@
 defmodule QueuePersistent.Server do
+  use GenServer
+
+  @name __MODULE__
+  @db_name "queue.db"
+
   defmodule State do
     defstruct queue: :queue.new, in_progress: %{}, counter: 0
   end
 
-  use GenServer
-
   ## Client API
 
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, :ok, opts)
+    GenServer.start_link(__MODULE__, :ok, opts ++ [name: @name])
   end
 
-  def state(pid) do
-    GenServer.call(pid, :state)
+  def state() do
+    GenServer.call(@name, :state)
   end
 
-  def add(pid, message) do
-    GenServer.call(pid, {:add, message})
+  def add(message) do
+    GenServer.call(@name, {:add, message})
   end
 
-  def get(pid) do
-    GenServer.call(pid, :get)
+  def get() do
+    GenServer.call(@name, :get)
   end
 
-  def ack(pid, message_id) do
-    GenServer.call(pid, {:ack, message_id})
+  def ack(message_id) do
+    GenServer.call(@name, {:ack, message_id})
   end
 
-  def reject(pid, message_id) do
-    GenServer.call(pid, {:reject, message_id})
+  def reject(message_id) do
+    GenServer.call(@name, {:reject, message_id})
   end
 
   ## Callbacks impl
 
   def init(:ok) do
-    {:ok, %State{}}
+    {:ok, get_saved_state()}
   end
 
   def handle_call(:state, _from, state) do
@@ -45,7 +48,11 @@ defmodule QueuePersistent.Server do
     msg_id = state.counter + 1
     msg = {msg_id, message}
     new_queue = :queue.in(msg, state.queue)
-    {:reply, msg_id, %{state | queue: new_queue, counter: msg_id}}
+
+    new_state = %{state | queue: new_queue, counter: msg_id}
+    save_state(new_state)
+
+    {:reply, msg_id, new_state}
   end
 
   def handle_call(:get, _from, state) do
@@ -59,9 +66,10 @@ defmodule QueuePersistent.Server do
           {Map.put_new(state.in_progress, msg_id, msg_content), r}
       end
 
-    {:reply, result,
-      %{state | queue: new_queue, in_progress: in_progress}
-    }
+    new_state = %{state | queue: new_queue, in_progress: in_progress}
+    save_state(new_state)
+
+    {:reply, result, new_state}
   end
 
   def handle_call({:ack, message_id}, _from, state) do
@@ -72,26 +80,39 @@ defmodule QueuePersistent.Server do
         _ ->
           {:not_found, state.in_progress}
       end
-    {:reply, found, %{state | in_progress: in_progress}}
+
+    new_state = %{state | in_progress: in_progress}
+    save_state(new_state)
+
+    {:reply, found, new_state}
   end
 
   def handle_call({:reject, message_id}, _from, state) do
-    {result, new_state} =
-      if Map.has_key?(state.in_progress, message_id) do
-        message = Map.get(state.in_progress, message_id)
-        new_queue = :queue.in({message_id, message}, state.queue)
-        new_in_progress = Map.delete(state.in_progress, message_id)
+    if Map.has_key?(state.in_progress, message_id) do
+      message = Map.get(state.in_progress, message_id)
+      new_queue = :queue.in({message_id, message}, state.queue)
+      new_in_progress = Map.delete(state.in_progress, message_id)
 
-        {:ok, %{state | queue: new_queue, in_progress: new_in_progress}}
-      else
-        {:not_found, state}
-      end
-    {:reply, result, new_state}
+      new_state = %{state | queue: new_queue, in_progress: new_in_progress}
+      save_state(new_state)
+
+      {:reply, :ok, new_state}
+    else
+      {:reply, :not_found, state}
+    end
   end
 
   ## Helpers
-  # defp add_to_queue(queue, message) do
-  #
-  # end
+
+  defp get_saved_state() do
+    case File.read(@db_name) do
+      {:ok, content} -> :erlang.binary_to_term(content)
+      _ -> %State{}
+    end
+  end
+
+  defp save_state(state) do
+    File.write!(@db_name, :erlang.term_to_binary(state))
+  end
 
 end

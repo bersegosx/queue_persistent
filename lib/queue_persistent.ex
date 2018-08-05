@@ -1,18 +1,12 @@
 defmodule QueuePersistent do
-  @moduledoc """
-  Documentation for QueuePersistent.
-  """
+  use Application
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> QueuePersistent.hello()
-      :world
-
-  """
-  def hello do
-    :world
+  def start(_type, _args) do
+    QueuePersistent.Supervisor.start_link
   end
+
+  defdelegate add(message),       to: QueuePersistent.Server
+  defdelegate get,                to: QueuePersistent.Server
+  defdelegate ack(message_id),    to: QueuePersistent.Server
+  defdelegate reject(message_id), to: QueuePersistent.Server
 end
