@@ -1,21 +1,22 @@
 defmodule QueuePersistent.Store do
+  @moduledoc false
+
   use Amnesia
 
   defdatabase Database do
     deftable MessageProgress, [:id, :item], type: :set do; end
 
     deftable Message, [{:id, autoincrement}, :item], type: :ordered_set do
-
       def add(message) do
         Amnesia.transaction do
-          %Message{item: message, id: nil} |> Message.write
+          Message.write(%Message{item: message, id: nil})
         end
       end
-
     end
+    
   end
 
-  def init() do
+  def init do
     Amnesia.stop
     Amnesia.Schema.create
     Amnesia.start

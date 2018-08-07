@@ -1,5 +1,4 @@
 defmodule QueuePersistent.Test do
-
   alias QueuePersistent.Store.Database
 
   defmodule Helpers.App do

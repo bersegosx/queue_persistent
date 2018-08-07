@@ -1,4 +1,6 @@
 defmodule QueuePersistent.Server do
+  @moduledoc false
+
   use GenServer
   use Amnesia
 
@@ -17,7 +19,7 @@ defmodule QueuePersistent.Server do
     call({:add, message})
   end
 
-  def get() do
+  def get do
     call(:get)
   end
 
@@ -29,7 +31,7 @@ defmodule QueuePersistent.Server do
     call({:reject, message_id})
   end
 
-  def keys() do
+  def keys do
     call(:keys)
   end
 
@@ -39,6 +41,7 @@ defmodule QueuePersistent.Server do
     {:ok, nil}
   end
 
+  @doc "only for tests"
   def handle_call(:keys, _from, state) do
     result = Amnesia.transaction do
       {Database.Message.keys, Database.MessageProgress.keys}
@@ -47,22 +50,25 @@ defmodule QueuePersistent.Server do
   end
 
   def handle_call({:add, message}, _from, state) do
-    item = Database.Message.add message
+    item = Database.Message.add(message)
     {:reply, {:id, item.id}, state}
   end
 
   def handle_call(:get, _from, state) do
-    result = Amnesia.transaction do
-      case Database.Message.first() do
-        nil -> :empty
-        item ->
-          Database.Message.delete(item)
+    result =
+      Amnesia.transaction do
+        case Database.Message.first() do
+          nil ->
+            :empty
 
-          struct(Database.MessageProgress, Map.from_struct(item))
-            |> Database.MessageProgress.write
-          {{:id, item.id}, item.item}
+          item ->
+            Database.Message.delete(item)
+            Database.MessageProgress.write(
+              struct(Database.MessageProgress, Map.from_struct(item))
+            )
+            {{:id, item.id}, item.item}
+        end
       end
-    end
 
     {:reply, result, state}
   end
@@ -73,6 +79,7 @@ defmodule QueuePersistent.Server do
         case Database.MessageProgress.read(message_id) do
           nil ->
             :empty
+
           _ ->
             Database.MessageProgress.delete(message_id)
             :ok
@@ -88,10 +95,11 @@ defmodule QueuePersistent.Server do
         case Database.MessageProgress.read(message_id) do
           nil ->
             :empty
-          item ->
+
+          msg ->
             Database.MessageProgress.delete(message_id)
-            item = %Database.Message{item: item.item, id: nil}
-              |> Database.Message.write
+            item =
+              Database.Message.write(%Database.Message{item: msg.item, id: nil})
             {:id, item.id}
         end
       end
