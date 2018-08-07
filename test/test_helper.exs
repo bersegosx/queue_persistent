@@ -1,20 +1,30 @@
-defmodule QueuePersistent.Test.Helpers do
+defmodule QueuePersistent.Test do
 
-  def start do
-    Application.start(:que)
+  alias QueuePersistent.Store.Database
+
+  defmodule Helpers.App do
+    @app :queue_persistent
+
+    def start do
+      Application.start(@app)
+    end
+
+    def reset do
+      stop()
+      Helpers.Mnesia.reset
+      start()
+    end
+
+    def stop do
+      Application.stop(@app)
+    end
   end
 
-  def reset do
-    stop()
-    Helpers.Mnesia.reset
-    start()
-    :ok
-  end
-
-  def stop do
-    Helpers.capture_log(fn ->
-      Application.stop(:que)
-    end)
+  defmodule Helpers.Mnesia do
+    def reset do
+      Database.destroy
+      Database.create
+    end
   end
 
 end

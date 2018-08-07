@@ -54,7 +54,7 @@ defmodule QueuePersistent.Server do
   def handle_call(:get, _from, state) do
     result = Amnesia.transaction do
       case Database.Message.first() do
-        nil -> :emtpy
+        nil -> :empty
         item ->
           Database.Message.delete(item)
 

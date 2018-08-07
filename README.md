@@ -9,6 +9,8 @@ mix deps.get
 ## Usage
 
 ```elixir
+iex(0)> QueuePersistent.get
+:empty
 iex(1)> QueuePersistent.add "some_message"
 {:id, 7}
 iex(2)> QueuePersistent.add {:second}

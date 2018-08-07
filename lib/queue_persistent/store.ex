@@ -3,7 +3,7 @@ defmodule QueuePersistent.Store do
 
   defdatabase Database do
     deftable MessageProgress, [:id, :item], type: :set do; end
-    
+
     deftable Message, [{:id, autoincrement}, :item], type: :ordered_set do
 
       def add(message) do
