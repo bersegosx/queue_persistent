@@ -70,4 +70,15 @@ defmodule QueuePersistent.Test.Server do
     assert        msg == "one"
   end
 
+  test "#reject & #ack wrong message_id" do
+    QueuePersistent.add "my_favorite_msg"
+    QueuePersistent.get
+
+    {q, qw} = QueuePersistent.Server.keys
+    assert {length(q), length(qw)} == {0, 1}
+
+    assert :empty == QueuePersistent.reject 44
+    assert :empty == QueuePersistent.ack 44
+  end
+
 end
